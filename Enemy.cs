@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -76,7 +76,7 @@ public class Enemy : MonoBehaviour
         {
             enemyNextAttack = Time.time + enemyAtackRate;
             enemyAnimator.SetInteger("EnemyState", 2);
-            if(playerScript.isDodging == false)
+            if(CanGiveDamage())
             {
                 playerScript.TakeDamage(damage);
             }
@@ -126,5 +126,19 @@ public class Enemy : MonoBehaviour
     {
         if (playerObjectTransform.position.x - transform.position.x < 0 && isFacingRight == false) FlipCharacter();
         else if (playerObjectTransform.position.x - transform.position.x > 0 && isFacingRight == true) FlipCharacter();
+    }
+    bool CanGiveDamage()
+    { // check for enemy dodge to which way. If he is turn his back and press dodging, enemy can still damage because the sword doesn't block him.
+        if (playerScript.isDodging == true && playerScript.isFacingRight == true && playerObjectTransform.position.x - transform.position.x < 0)
+        {
+            return false;
+        }
+        else if (playerScript.isDodging == true && playerScript.isFacingRight == false && playerObjectTransform.position.x - transform.position.x >= 0)
+        {
+            return false;
+        }
+
+        else return true;
+
     }
 }
