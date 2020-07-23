@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -7,8 +7,9 @@ public class Chest : MonoBehaviour
 {
     Animator chestAnimator;
     public GameObject Sword;
-    public GameObject HealthPot;
-    private int itemNumber = 1;
+    public GameObject Armor;
+    public GameObject SpeedPotion;
+    private int itemNumber;
     void Start()
     {
         itemNumber = Random.Range(1, 3);
@@ -19,9 +20,14 @@ public class Chest : MonoBehaviour
     {
         chestAnimator.SetBool("isOpened", true);
         if (itemNumber == 1) StartCoroutine(ChestDestroy(Sword));
-        else if (itemNumber == 2) StartCoroutine(ChestDestroy(HealthPot));
+        else if (itemNumber == 2)
+        {
+            StartCoroutine(ChestDestroy(Armor));
 
-
+        }
+        else if (itemNumber == 3){
+            StartCoroutine(ChestDestroy(SpeedPotion));
+        }
     }
 
     IEnumerator ChestDestroy(GameObject willInstantiated)
