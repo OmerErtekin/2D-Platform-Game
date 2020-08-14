@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 
 public class EnemyMage : MonoBehaviour
@@ -15,52 +14,84 @@ public class EnemyMage : MonoBehaviour
     private float EnemySpeed = 3f;
     private int EnemyHealth = 100;
     private float enemyNextAttack;
+    private float enemyNextSpell;
     private float enemyAtackRate = 1.5f;
+    private float enemySpellRate = 6f;
     private Animator enemyAnimator;
     private Transform playerObjectTransform;
     private PlayerMove playerScript;
     private CapsuleCollider2D enemyCollider;
+    private BoxCollider2D enemyFootCollider;
+    private ParticleSystem spellEffect;
     public GameObject FireBallObject;
+    private AudioSource attackSound;
+    private AudioSource deathSound;
+    private AudioSource takeDamageSound;
     private bool isEnemyAlive;
     private bool isFacingRight = false;
+    public bool isSkilled = false;
+
     void Start()
     {
         playerObjectTransform = GameObject.FindWithTag("Player").transform;
         isEnemyAlive = true;
         enemyAnimator = GetComponent<Animator>();
+        spellEffect = GetComponentInChildren<ParticleSystem>();
         playerScript = GameObject.Find("Player").GetComponent<PlayerMove>();
         enemyCollider = GetComponent<CapsuleCollider2D>();
+        enemyFootCollider = GetComponent<BoxCollider2D>();
+        AudioSource[] soundSources = GetComponents<AudioSource>();
+        attackSound = soundSources[0];
+        deathSound = soundSources[2];
+        takeDamageSound = soundSources[1];
     }
-
+        
     void Update()
     {
-        if (EnemyHealth <= 0)
+        if (isEnemyAlive == true)
         {
-            Die();
-        }
+            if (EnemyHealth <= 0 || enemyFootCollider.IsTouchingLayers(LayerMask.GetMask("Spike")))
+            {
+                Die();
+            }
 
-        if (isEnemyAlive && playerScript.isAlive)
-        {
-            SpriteDirectionControl();
-            SearchForPlayer();
-        }
-        else if (!playerScript.isAlive)
-        {
-            // TODO : you can do some victory effects for enemy.
-            enemyAnimator.SetInteger("EnemyState", 0);
-        }
+                if (isEnemyAlive && playerScript.isAlive && !isSkilled)
+                {
+                    SpriteDirectionControl();
+                    SearchForPlayer();
+                }
+                else if(isEnemyAlive && isSkilled)
+                {
+                enemyAnimator.SetInteger("EnemyState", 0);
+                }
+                else if (!playerScript.isAlive)
+                {
+                    // TODO : you can do some victory effects for enemy.
+                    enemyAnimator.SetInteger("EnemyState", 0);
+                }
+            }
 
-
+        
     }
 
     public void GetDamage(int damage)
     {
+        takeDamageSound.Play();
         EnemyHealth -= damage;
-        // TODO : add take damage effect and sounds
 
+
+    }
+    public void GetSkill(int damage)
+    {
+        spellEffect.Play();
+        EnemyHealth -= damage;
     }
     private void Die()
     {
+        if (isEnemyAlive == true)
+        {
+            deathSound.Play();
+        }
         isEnemyAlive = false;
         enemyAnimator.SetInteger("EnemyState", 3);
         enemyCollider.enabled = false;
@@ -69,18 +100,33 @@ public class EnemyMage : MonoBehaviour
 
     private void Attack()
     {
-        if (Time.time > enemyNextAttack)
+        if(Time.time > enemyNextSpell)
         {
+            enemyNextSpell = Time.time + enemySpellRate;
+            enemyNextAttack = Time.time + enemyAtackRate;
+            playerScript.TakeSpell();
+        }
+        else if (Time.time > enemyNextAttack)
+        {
+            attackSound.Play();
             enemyNextAttack = Time.time + enemyAtackRate;
             Instantiate(FireBallObject, transform.position, Quaternion.identity);
             enemyAnimator.SetInteger("EnemyState", 2);
         }
     }
 
+
+
     private IEnumerator ClearTheEnemy()
     {
+        enemyCollider.enabled = false;
         yield return new WaitForSeconds(1);
-        Destroy(gameObject);
+        isEnemyAlive = true;
+        EnemyHealth = 100;
+        enemyCollider.enabled = true;
+        yield return new WaitForSeconds(0.01f);
+        this.gameObject.SetActive(false);
+        yield return new WaitForSeconds(0.5f);
     }
 
     private void MoveToPlayer()
@@ -93,11 +139,11 @@ public class EnemyMage : MonoBehaviour
     private void SearchForPlayer()
     {
         distanceBetweenPlayer = Mathf.Abs(playerObjectTransform.position.x - transform.position.x);
-        if (distanceBetweenPlayer <= 10f)
+        if (distanceBetweenPlayer <= 7f && Mathf.Abs(playerObjectTransform.position.y - transform.position.y) < 2)
         {
             Attack();
         }
-        else if (distanceBetweenPlayer <= 15f)
+        else if (distanceBetweenPlayer <= 10f && Mathf.Abs(playerObjectTransform.position.y - transform.position.y) < 2)
         {
             MoveToPlayer();
         }
@@ -121,4 +167,5 @@ public class EnemyMage : MonoBehaviour
         if (playerObjectTransform.position.x - transform.position.x < 0 && isFacingRight == false) FlipCharacter();
         else if (playerObjectTransform.position.x - transform.position.x > 0 && isFacingRight == true) FlipCharacter();
     }
+
 }
