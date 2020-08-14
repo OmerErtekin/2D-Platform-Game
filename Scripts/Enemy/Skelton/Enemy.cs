@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 
 public class Enemy : MonoBehaviour
@@ -13,60 +12,85 @@ public class Enemy : MonoBehaviour
      */
     private float distanceBetweenPlayer;
     private float EnemySpeed = 5f;
-    private int EnemyHealth = 100;
-    private int damage = 10;
+    private int EnemyHealth = 150;
+    private int damage = 5;
     private float enemyNextAttack;
     private float enemyAtackRate = 1f;
     private Animator enemyAnimator;
     private Transform playerObjectTransform;
-    private Rigidbody2D enemyRB;
     private PlayerMove playerScript;
     private CapsuleCollider2D enemyCollider;
+    private BoxCollider2D enemyFootCollider;
+    private ParticleSystem spellEffect;
     private bool isEnemyAlive;
     private bool isFacingRight = false;
+    public bool isSkilled = false;
+    private AudioSource attackSound;
+    private AudioSource deathSound;
+    private AudioSource takeDamageSound;
 
     void Start()
     {
         playerObjectTransform = GameObject.FindWithTag("Player").transform;
         isEnemyAlive = true;
         enemyAnimator = GetComponent<Animator>();
+        spellEffect = GetComponentInChildren<ParticleSystem>();
         playerScript = GameObject.Find("Player").GetComponent<PlayerMove>();
         enemyCollider = GetComponent<CapsuleCollider2D>();
-        enemyRB = GetComponent<Rigidbody2D>();
+        enemyFootCollider = GetComponent<BoxCollider2D>();
+        AudioSource[] soundSources = GetComponents<AudioSource>();
+        attackSound = soundSources[2];
+        deathSound = soundSources[0];
+        takeDamageSound = soundSources[1];
     }
 
     void Update()
     {
-        if (EnemyHealth <= 0)
+
+        if (EnemyHealth <= 0 || enemyFootCollider.IsTouchingLayers(LayerMask.GetMask("Spike")))
         {
             Die();
         }
-
-        if (isEnemyAlive && playerScript.isAlive)
+        if (isSkilled == false)
         {
-            SpriteDirectionControl();
-            SearchForPlayer();
+            if (isEnemyAlive && playerScript.isAlive && !isSkilled)
+            {
+                SpriteDirectionControl();
+                SearchForPlayer();
+            }
+            else if(isEnemyAlive && isSkilled)
+            {
+                enemyAnimator.SetInteger("EnemyState", 0);
+            }
+            else if (!playerScript.isAlive)
+            {
+                // TODO : you can do some victory effects for enemy.
+                enemyAnimator.SetInteger("EnemyState", 0);
+            }
         }
-        else if (!playerScript.isAlive)
-        {
-            // TODO : you can do some victory effects for enemy.
-            enemyAnimator.SetInteger("EnemyState", 0);
-        }
-
 
     }
 
     public void GetDamage(int damage)
     {
+        takeDamageSound.Play();
         EnemyHealth -= damage;
-        // TODO : add take damage effect and sounds
-       
+
+    }
+    public void GetSkill(int damage)
+    {
+        spellEffect.Play();
+        EnemyHealth -= damage;
+
     }
     private void Die()
     {
+        if (isEnemyAlive == true)
+        {
+            deathSound.Play();
+        }
         isEnemyAlive = false;
         enemyAnimator.SetInteger("EnemyState", 3);
-        enemyCollider.enabled = false;
         StartCoroutine(ClearTheEnemy());
     }
 
@@ -76,34 +100,26 @@ public class Enemy : MonoBehaviour
         {
             enemyNextAttack = Time.time + enemyAtackRate;
             enemyAnimator.SetInteger("EnemyState", 2);
-            if(CanGiveDamage())
-            {
-                playerScript.TakeDamage(damage);
-            }
+            StartCoroutine(attackWithDelay());
         }
-    }
 
-    private IEnumerator ClearTheEnemy()
-    {
-        yield return new WaitForSeconds(1);
-        Destroy(gameObject);
     }
 
     private void MoveToPlayer()
     {
         enemyAnimator.SetInteger("EnemyState", 1);
-        transform.position =Vector2.MoveTowards(transform.position,new Vector2(playerObjectTransform.position.x,transform.position.y),EnemySpeed*Time.deltaTime);
+        transform.position = Vector2.MoveTowards(transform.position, new Vector2(playerObjectTransform.position.x, transform.position.y), EnemySpeed * Time.deltaTime);
 
     }
 
     private void SearchForPlayer()
     {
         distanceBetweenPlayer = Mathf.Abs(playerObjectTransform.position.x - transform.position.x);
-        if(distanceBetweenPlayer <= 2f)
+        if (distanceBetweenPlayer <= 1f && Mathf.Abs(playerObjectTransform.position.y - transform.position.y) < 2 )
         {
             Attack();
         }
-        else if (distanceBetweenPlayer <= 10f)
+        else if (distanceBetweenPlayer <= 10f && Mathf.Abs(playerObjectTransform.position.y - transform.position.y) < 2)
         {
             MoveToPlayer();
         }
@@ -139,6 +155,36 @@ public class Enemy : MonoBehaviour
         }
 
         else return true;
+
+    }
+    private IEnumerator attackWithDelay()
+    {
+        yield return new WaitForSeconds(0.4f);
+        if (CanGiveDamage())
+        {
+            attackSound.Play();
+            playerScript.TakeDamage(damage);
+        }
+        else
+        {
+            playerScript.dodgeParticle.Play();
+            playerScript.dodgeSound.Play();
+        }
+        yield return new WaitForSeconds(0.7f);
+        enemyAnimator.SetInteger("EnemyState", 0);
+    }
+
+
+    private IEnumerator ClearTheEnemy()
+    {
+        enemyCollider.enabled = false;
+        yield return new WaitForSeconds(1);
+        isEnemyAlive = true;
+        enemyCollider.enabled = true;
+        EnemyHealth = 75;
+        yield return new WaitForSeconds(0.1f);
+        this.gameObject.SetActive(false);
+        yield return new WaitForSeconds(0.5f);
 
     }
 }
