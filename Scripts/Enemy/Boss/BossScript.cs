@@ -1,6 +1,6 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class BossScript : MonoBehaviour
 {
@@ -13,20 +13,32 @@ public class BossScript : MonoBehaviour
      */
     private float distanceBetweenPlayer;
     private float EnemySpeed = 5f;
-    private int EnemyHealth = 200;
-    private int damage = 10;
+    private int enemyHealth ;
+    private int enemyMaxHealth = 500;
+    private int damage = 25;
     private float enemyNextAttack;
-    private float enemyAtackRate = 1f;
+    private float enemyAtackRate = 0.75f;
+    private float healthPercent;
     private Animator enemyAnimator;
     private Transform playerObjectTransform;
-    private Rigidbody2D enemyRB;
     private PlayerMove playerScript;
     private CapsuleCollider2D enemyCollider;
-    private bool isEnemyAlive = true;
+    private BoxCollider2D teleportCollider;
+    private SpriteRenderer bossRenderer;
+    public ParticleSystem disappearEffect;
+    public ParticleSystem spellEffect;
+    private AudioSource bossLaugh;
+    public Image healthFill;
+    public GameObject barObject;
+    public bool isEnemyAlive = true;
+    public bool isSkilled = false;
     private bool isFacingRight = false;
     private bool isAtacking = false;
     private bool isTeleported = false;
-    private SpriteRenderer bossRenderer;
+    
+
+
+
 
     void Start()
     {
@@ -34,52 +46,78 @@ public class BossScript : MonoBehaviour
         enemyAnimator = GetComponent<Animator>();
         playerScript = GameObject.Find("Player").GetComponent<PlayerMove>();
         enemyCollider = GetComponent<CapsuleCollider2D>();
-        enemyRB = GetComponent<Rigidbody2D>();
+        teleportCollider = GetComponent<BoxCollider2D>();
         bossRenderer = GetComponent<SpriteRenderer>();
+        bossLaugh = GetComponent<AudioSource>();
+        enemyHealth = enemyMaxHealth;
+
     }
 
     void Update()
     {
         if (isEnemyAlive == true)
         {
-            if (EnemyHealth <= 0)
+            if (enemyHealth <= 0)
             {
                 Die();
             }
-            if (EnemyHealth <= 100 && playerScript.isAlive == true)
-            {
-                StealthBoss();
-            }
+                if (enemyHealth <= enemyMaxHealth / 2 && isSkilled == false)
+                {
+                    StealthBoss();
+                }
 
-            if (isEnemyAlive && playerScript.isAlive && isAtacking == false)
-            {
-                SpriteDirectionControl();
-                SearchForPlayer();
-            }
-            else if (!playerScript.isAlive)
-            {
-                // TODO : you can do some victory effects for enemy.
+                if (playerScript.isAlive && isAtacking == false && isSkilled == false)
+                {
+                    SpriteDirectionControl();
+                    SearchForPlayer();
+                }
+                else if(isEnemyAlive && isSkilled)
+                {
                 enemyAnimator.SetInteger("EnemyState", 0);
+                }
+                else if (!playerScript.isAlive)
+                {
+                    // TODO : you can do some victory effects for enemy.
+                    enemyAnimator.SetInteger("EnemyState", 0);
+                }
             }
-        }
-        if(playerScript.isAlive == false){
-            bossRenderer.enabled = true;
-        }
-      
+            if (playerScript.isAlive == false)
+            {
+                bossRenderer.enabled = true;
+                enemyHealth = enemyMaxHealth;
+                healthFill.fillAmount = 1;
+
+            }
+            if (isEnemyAlive == false)
+            {
+                enemyAnimator.SetInteger("EnemyState", 3);
+                barObject.SetActive(false);
+            }
+        
+
     }
 
-    public void GetDamage(int damage)
+    public void GetDamage(int damage) 
     {
-        EnemyHealth -= damage;
-        // TODO : add take damage effect and sounds
+        enemyHealth -= damage;
+        healthPercent = (float)enemyHealth / enemyMaxHealth;
+        healthFill.fillAmount = healthPercent;
+       
 
+    }
+
+    public void GetSkill(int damage)
+    {
+        enemyHealth -= damage;
+        healthPercent = (float)enemyHealth / enemyMaxHealth;
+        healthFill.fillAmount = healthPercent;
+        spellEffect.Play();
     }
     private void Die()
     {
         isEnemyAlive = false;
-        enemyCollider.enabled = false;
         enemyAnimator.SetInteger("EnemyState", 3);
-        enemyCollider.enabled = false;
+
         StartCoroutine(ClearTheEnemy());
     }
 
@@ -87,7 +125,6 @@ public class BossScript : MonoBehaviour
     {
         if (Time.time > enemyNextAttack)
         {
-            enemyAnimator.SetInteger("EnemyState", 2);
             StartCoroutine(SetAttackActive());
             enemyNextAttack = Time.time + enemyAtackRate;
 
@@ -95,11 +132,17 @@ public class BossScript : MonoBehaviour
             {
                 playerScript.TakeDamage(damage);
             }
+            else
+            {
+                playerScript.dodgeParticle.Play();
+                playerScript.dodgeSound.Play();
+            }
         }
     }
 
     private IEnumerator ClearTheEnemy()
     {
+        enemyCollider.enabled = false;
         yield return new WaitForSeconds(3);
         Destroy(gameObject);
     }
@@ -107,20 +150,20 @@ public class BossScript : MonoBehaviour
     private void MoveToPlayer()
     {
 
-            enemyAnimator.SetInteger("EnemyState", 1);
-            transform.position = Vector2.MoveTowards(transform.position, new Vector2(playerObjectTransform.position.x, transform.position.y), EnemySpeed * Time.deltaTime);
+         enemyAnimator.SetInteger("EnemyState", 1);
+         transform.position = Vector2.MoveTowards(transform.position, new Vector2(playerObjectTransform.position.x, transform.position.y), EnemySpeed * Time.deltaTime);
         
     }
 
     private void SearchForPlayer()
     {
         distanceBetweenPlayer = Mathf.Abs(playerObjectTransform.position.x - transform.position.x);
-        if (distanceBetweenPlayer <= 1f)
+        if (distanceBetweenPlayer <= 1f && Mathf.Abs(playerObjectTransform.position.y - transform.position.y) < 5 )
         {
             StartCoroutine(SetAttackActive());
             Attack();
         }
-        else if (distanceBetweenPlayer <= 10f)
+        else if (distanceBetweenPlayer <= 10f && Mathf.Abs(playerObjectTransform.position.y - transform.position.y) < 1)
         {
             if (isAtacking == false)
             {
@@ -154,23 +197,28 @@ public class BossScript : MonoBehaviour
     IEnumerator SetAttackActive()
     {
         isAtacking = true;
+        enemyAnimator.SetInteger("EnemyState", 2);
         yield return new WaitForSeconds(0.5f);
         isAtacking = false;
+        enemyAnimator.SetInteger("EnemyState", 0);
     }
 
     void StealthBoss()
     {
-       // isStealth = true; // use it for add laugh effects
         if (isAtacking == false)
         {
             if (isTeleported == false)
             {
+                disappearEffect.Play();
+                bossLaugh.Play();
                 StartCoroutine(Teleport());
             }
+            barObject.SetActive(false);
             bossRenderer.enabled = false;
         }
         else
         {
+            barObject.SetActive(true);
             bossRenderer.enabled = true;
         }
     }
@@ -193,7 +241,10 @@ public class BossScript : MonoBehaviour
     IEnumerator Teleport()
     {
         isTeleported = true;
-        transform.position = new Vector2(transform.position.x + Random.Range(-5, 5), transform.position.y);
+        if (!teleportCollider.IsTouchingLayers(LayerMask.GetMask("Ground")))
+        {
+            transform.position = new Vector2(transform.position.x + Random.Range(-5, 5), transform.position.y);
+        }
         yield return new WaitForSeconds(3);
         isTeleported = false;
     }
