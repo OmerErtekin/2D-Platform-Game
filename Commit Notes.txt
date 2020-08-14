@@ -1,3 +1,7 @@
 23.07.2020 
 #Added/Changed boss scriptiUI script/ new movement script for get the inputs of the mobile phone (by using the joysticks)
 #Added new 2 enemy types (boss and skelton) and joystick,health bar icons and images
+
+
+14.08.2020
+Im here with jumbo commit! So i basicaly finish my 2 level and story and i've added skill / cool down animations / new obstacles / new enemies. There will be link of a google play store for download my game as soon as posible!
